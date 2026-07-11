@@ -9,7 +9,7 @@ from app.schemas.user import UserCreate, UserUpdate
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
-    result = await db.execute(select(User).where(User.email == email))
+    result = await db.execute(select(User).where(User.email == email.strip().lower()))
     return result.scalar_one_or_none()
 
 
@@ -19,7 +19,7 @@ async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:
 
 async def create_user(db: AsyncSession, data: UserCreate) -> User:
     user = User(
-        email=data.email,
+        email=data.email.strip().lower(),
         hashed_password=hash_password(data.password),
         full_name=data.full_name,
     )

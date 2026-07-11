@@ -152,7 +152,7 @@ async def create_invitation(
     expires_at = datetime.now(timezone.utc) + timedelta(days=INVITATION_EXPIRE_DAYS)
     invitation = Invitation(
         organization_id=organization_id,
-        email=data.email,
+        email=data.email.strip().lower(),
         role=data.role,
         token=token,
         invited_by=invited_by.id,
@@ -162,6 +162,17 @@ async def create_invitation(
     await db.commit()
     await db.refresh(invitation)
     return invitation
+
+
+async def _fetch_membership_with_user(
+    db: AsyncSession, organization_id: uuid.UUID, user_id: uuid.UUID
+) -> Membership:
+    result = await db.execute(
+        select(Membership)
+        .options(selectinload(Membership.user))
+        .where(Membership.organization_id == organization_id, Membership.user_id == user_id)
+    )
+    return result.scalar_one()
 
 
 async def accept_invitation(db: AsyncSession, token: str, current_user: User) -> Membership:
@@ -186,26 +197,24 @@ async def accept_invitation(db: AsyncSession, token: str, current_user: User) ->
     )
     membership = existing.scalar_one_or_none()
     if membership is None:
-        membership = Membership(
-            organization_id=invitation.organization_id,
-            user_id=current_user.id,
-            role=invitation.role,
-            status=MembershipStatus.ACTIVE,
+        db.add(
+            Membership(
+                organization_id=invitation.organization_id,
+                user_id=current_user.id,
+                role=invitation.role,
+                status=MembershipStatus.ACTIVE,
+            )
         )
-        db.add(membership)
     else:
         membership.status = MembershipStatus.ACTIVE
         membership.role = invitation.role
 
     invitation.accepted_at = now
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        # Lost a race against a concurrent accept for the same user+org: the
+        # membership row already exists either way, so just return its current state.
 
-    refreshed = await db.execute(
-        select(Membership)
-        .options(selectinload(Membership.user))
-        .where(
-            Membership.organization_id == invitation.organization_id,
-            Membership.user_id == current_user.id,
-        )
-    )
-    return refreshed.scalar_one()
+    return await _fetch_membership_with_user(db, invitation.organization_id, current_user.id)

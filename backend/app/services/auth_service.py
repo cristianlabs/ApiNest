@@ -56,6 +56,8 @@ async def _get_valid_refresh_token(db: AsyncSession, raw_token: str) -> RefreshT
 async def rotate_refresh_token(db: AsyncSession, raw_token: str) -> TokenPair:
     token = await _get_valid_refresh_token(db, raw_token)
     token.revoked_at = datetime.now(timezone.utc)
+    await db.commit()
+
     user = await db.get(User, token.user_id)
     if user is None or not user.is_active:
         raise INVALID_REFRESH_TOKEN

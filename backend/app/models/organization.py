@@ -53,6 +53,8 @@ class Membership(UUIDPkMixin, TimestampMixin, Base):
 
     @property
     def email(self) -> str:
+        # Requires `user` to be eager-loaded (e.g. .options(selectinload(Membership.user)));
+        # under async SQLAlchemy, accessing it without that raises MissingGreenlet.
         return self.user.email
 
 

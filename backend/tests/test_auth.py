@@ -99,3 +99,27 @@ async def test_logout_revokes_refresh_token(client):
     assert logout_resp.status_code == 200
     reuse_resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": refresh_token})
     assert reuse_resp.status_code == 401
+
+
+async def test_password_longer_than_72_bytes_is_accepted(client):
+    long_password = "correct-horse-battery-staple-" + ("x" * 80)
+    response = await _register(client, email="ivan@example.com", password=long_password)
+    assert response.status_code == 201
+
+    login_resp = await client.post(
+        "/api/v1/auth/login", json={"email": "ivan@example.com", "password": long_password}
+    )
+    assert login_resp.status_code == 200
+
+
+async def test_email_is_case_insensitive(client):
+    await _register(client, email="Judy@Example.com", password="correct-password")
+
+    duplicate = await _register(client, email="judy@example.com", password="correct-password")
+    assert duplicate.status_code == 409
+
+    login_resp = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "JUDY@EXAMPLE.COM", "password": "correct-password"},
+    )
+    assert login_resp.status_code == 200
