@@ -80,3 +80,43 @@ async def test_non_member_cannot_access_api(client):
     outsider_token = await register_and_login(client, "outsider3@example.com")
     response = await client.get(f"/api/v1/apis/{api_id}", headers=auth_headers(outsider_token))
     assert response.status_code == 403
+
+
+async def test_owner_id_must_be_org_member(client):
+    token = await register_and_login(client, "api-owner5@example.com")
+    _org_id, project_id = await create_org_and_project(client, token, "Org I", "Project I")
+
+    outsider_token = await register_and_login(client, "outsider4@example.com")
+    outsider_me = await client.get("/api/v1/users/me", headers=auth_headers(outsider_token))
+    outsider_id = outsider_me.json()["id"]
+
+    response = await client.post(
+        f"/api/v1/projects/{project_id}/apis",
+        json={
+            "name": "API Sem Dono Valido",
+            "base_url": "https://noowner.example.com",
+            "owner_id": outsider_id,
+        },
+        headers=auth_headers(token),
+    )
+    assert response.status_code == 400
+
+
+async def test_owner_id_accepts_org_member(client):
+    token = await register_and_login(client, "api-owner6@example.com")
+    org_id, project_id = await create_org_and_project(client, token, "Org J", "Project J")
+    owner_user_id = (
+        await client.get(f"/api/v1/organizations/{org_id}/members", headers=auth_headers(token))
+    ).json()[0]["user_id"]
+
+    response = await client.post(
+        f"/api/v1/projects/{project_id}/apis",
+        json={
+            "name": "API Com Dono Valido",
+            "base_url": "https://owner.example.com",
+            "owner_id": owner_user_id,
+        },
+        headers=auth_headers(token),
+    )
+    assert response.status_code == 201
+    assert response.json()["owner_id"] == owner_user_id

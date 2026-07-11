@@ -23,7 +23,7 @@ async def create_api(
     ctx: ProjectContext = Depends(require_project_role(Role.ADMIN, Role.EDITOR)),
     db: AsyncSession = Depends(get_db),
 ) -> ApiOut:
-    return await api_registry_service.create_api(db, ctx.project.id, data)
+    return await api_registry_service.create_api(db, ctx.organization.id, ctx.project.id, data)
 
 
 @router.get("/projects/{project_id}/apis", response_model=list[ApiOut])
@@ -44,7 +44,7 @@ async def update_api(
     ctx: ApiContext = Depends(require_api_role(Role.ADMIN, Role.EDITOR)),
     db: AsyncSession = Depends(get_db),
 ) -> ApiOut:
-    return await api_registry_service.update_api(db, ctx.api, data)
+    return await api_registry_service.update_api(db, ctx.organization.id, ctx.api, data)
 
 
 @router.delete("/apis/{api_id}", status_code=status.HTTP_204_NO_CONTENT)

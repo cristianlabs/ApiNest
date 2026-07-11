@@ -93,3 +93,67 @@ async def test_only_admin_can_change_roles(client):
     )
     assert ok_resp.status_code == 200
     assert ok_resp.json()["role"] == "viewer"
+
+
+async def test_cannot_remove_last_admin(client):
+    owner_token = await register_and_login(client, "solo-admin@example.com")
+    org_resp = await client.post(
+        "/api/v1/organizations", json={"name": "Solo Admin Org"}, headers=auth_headers(owner_token)
+    )
+    org_id = org_resp.json()["id"]
+    owner_user_id = (
+        await client.get(f"/api/v1/organizations/{org_id}/members", headers=auth_headers(owner_token))
+    ).json()[0]["user_id"]
+
+    response = await client.delete(
+        f"/api/v1/organizations/{org_id}/members/{owner_user_id}", headers=auth_headers(owner_token)
+    )
+    assert response.status_code == 400
+
+    members_resp = await client.get(
+        f"/api/v1/organizations/{org_id}/members", headers=auth_headers(owner_token)
+    )
+    assert len(members_resp.json()) == 1
+
+
+async def test_cannot_demote_last_admin(client):
+    owner_token = await register_and_login(client, "solo-admin2@example.com")
+    org_resp = await client.post(
+        "/api/v1/organizations", json={"name": "Solo Admin Org 2"}, headers=auth_headers(owner_token)
+    )
+    org_id = org_resp.json()["id"]
+    owner_user_id = (
+        await client.get(f"/api/v1/organizations/{org_id}/members", headers=auth_headers(owner_token))
+    ).json()[0]["user_id"]
+
+    response = await client.patch(
+        f"/api/v1/organizations/{org_id}/members/{owner_user_id}",
+        json={"role": "viewer"},
+        headers=auth_headers(owner_token),
+    )
+    assert response.status_code == 400
+
+
+async def test_can_remove_admin_when_another_admin_remains(client):
+    owner_token = await register_and_login(client, "co-admin-owner@example.com")
+    org_resp = await client.post(
+        "/api/v1/organizations", json={"name": "Co Admin Org"}, headers=auth_headers(owner_token)
+    )
+    org_id = org_resp.json()["id"]
+
+    invite_resp = await client.post(
+        f"/api/v1/organizations/{org_id}/invitations",
+        json={"email": "co-admin@example.com", "role": "admin"},
+        headers=auth_headers(owner_token),
+    )
+    invite_token = invite_resp.json()["token"]
+    co_admin_token = await register_and_login(client, "co-admin@example.com")
+    co_admin_resp = await client.post(
+        f"/api/v1/invitations/{invite_token}/accept", headers=auth_headers(co_admin_token)
+    )
+    co_admin_user_id = co_admin_resp.json()["user_id"]
+
+    response = await client.delete(
+        f"/api/v1/organizations/{org_id}/members/{co_admin_user_id}", headers=auth_headers(owner_token)
+    )
+    assert response.status_code == 204

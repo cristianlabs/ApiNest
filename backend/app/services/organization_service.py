@@ -4,7 +4,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -14,6 +15,15 @@ from app.models.user import User
 from app.schemas.organization import InvitationCreate, OrganizationCreate, OrganizationUpdate
 
 INVITATION_EXPIRE_DAYS = 7
+
+DUPLICATE_ORG_ERROR = HTTPException(
+    status_code=status.HTTP_409_CONFLICT,
+    detail="An organization with this name already exists, please try again",
+)
+LAST_ADMIN_ERROR = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST,
+    detail="Cannot remove or demote the last admin of the organization",
+)
 
 
 def _slugify(name: str) -> str:
@@ -36,16 +46,20 @@ async def create_organization(db: AsyncSession, data: OrganizationCreate, creato
     slug = await _unique_slug(db, _slugify(data.name))
     organization = Organization(name=data.name, slug=slug, created_by=creator.id)
     db.add(organization)
-    await db.flush()
+    try:
+        await db.flush()
 
-    membership = Membership(
-        organization_id=organization.id,
-        user_id=creator.id,
-        role=Role.ADMIN,
-        status=MembershipStatus.ACTIVE,
-    )
-    db.add(membership)
-    await db.commit()
+        membership = Membership(
+            organization_id=organization.id,
+            user_id=creator.id,
+            role=Role.ADMIN,
+            status=MembershipStatus.ACTIVE,
+        )
+        db.add(membership)
+        await db.commit()
+    except IntegrityError as exc:
+        await db.rollback()
+        raise DUPLICATE_ORG_ERROR from exc
     await db.refresh(organization)
     return organization
 
@@ -78,6 +92,26 @@ async def list_members(db: AsyncSession, organization_id: uuid.UUID) -> list[Mem
     return list(result.scalars().all())
 
 
+async def _count_active_admins(db: AsyncSession, organization_id: uuid.UUID) -> int:
+    result = await db.execute(
+        select(func.count())
+        .select_from(Membership)
+        .where(
+            Membership.organization_id == organization_id,
+            Membership.role == Role.ADMIN,
+            Membership.status == MembershipStatus.ACTIVE,
+        )
+    )
+    return result.scalar_one()
+
+
+async def _ensure_not_last_admin(db: AsyncSession, membership: Membership) -> None:
+    if membership.role != Role.ADMIN or membership.status != MembershipStatus.ACTIVE:
+        return
+    if await _count_active_admins(db, membership.organization_id) <= 1:
+        raise LAST_ADMIN_ERROR
+
+
 async def update_member_role(
     db: AsyncSession, organization_id: uuid.UUID, user_id: uuid.UUID, role: Role
 ) -> Membership:
@@ -89,6 +123,8 @@ async def update_member_role(
     membership = result.scalar_one_or_none()
     if membership is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+    if role != Role.ADMIN:
+        await _ensure_not_last_admin(db, membership)
     membership.role = role
     await db.commit()
     await db.refresh(membership)
@@ -104,6 +140,7 @@ async def remove_member(db: AsyncSession, organization_id: uuid.UUID, user_id: u
     membership = result.scalar_one_or_none()
     if membership is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
+    await _ensure_not_last_admin(db, membership)
     await db.delete(membership)
     await db.commit()
 
