@@ -8,6 +8,14 @@ from app.core.db import engine, get_db
 from app.main import app
 
 
+@pytest.fixture(scope="session", autouse=True)
+async def _app_lifespan() -> AsyncGenerator[None, None]:
+    # ASGITransport doesn't trigger the lifespan protocol on its own, but routes
+    # like the REST client depend on app.state.http_client set up in main.py's lifespan.
+    async with app.router.lifespan_context(app):
+        yield
+
+
 @pytest.fixture
 async def db_session() -> AsyncGenerator[AsyncSession, None]:
     async with engine.connect() as conn:

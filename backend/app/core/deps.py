@@ -1,8 +1,9 @@
 import uuid
 from dataclasses import dataclass
 
+import httpx
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,7 @@ from app.core.security import decode_access_token
 from app.models.api_registry import Api, Endpoint
 from app.models.organization import Membership, Organization
 from app.models.project import Project
+from app.models.request_history import RequestHistory
 from app.models.user import User
 from app.services.user_service import get_user_by_id
 
@@ -187,3 +189,31 @@ def require_endpoint_role(*roles: Role):
         return ctx
 
     return checker
+
+
+def get_http_client(request: Request) -> httpx.AsyncClient:
+    return request.app.state.http_client
+
+
+@dataclass
+class HistoryContext:
+    history: RequestHistory
+    project: Project
+    organization: Organization
+    membership: Membership
+
+
+async def get_history_context(
+    history_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> HistoryContext:
+    history = await db.get(RequestHistory, history_id)
+    if history is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="History entry not found")
+    project = await db.get(Project, history.project_id)
+    membership = await _get_active_membership(db, project.organization_id, current_user.id)
+    organization = await db.get(Organization, project.organization_id)
+    return HistoryContext(
+        history=history, project=project, organization=organization, membership=membership
+    )

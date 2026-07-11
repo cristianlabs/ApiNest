@@ -2,20 +2,19 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.constants import MembershipStatus, Role
+from app.core.db_types import str_enum_column
 from app.models.base import Base, TimestampMixin, UUIDPkMixin
 
 if TYPE_CHECKING:
     from app.models.project import Project
     from app.models.user import User
 
-_role_enum = Enum(Role, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
-_status_enum = Enum(
-    MembershipStatus, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e]
-)
+_role_enum = str_enum_column(Role)
+_status_enum = str_enum_column(MembershipStatus)
 
 
 class Organization(UUIDPkMixin, TimestampMixin, Base):

@@ -1,20 +1,17 @@
 import uuid
 
-from sqlalchemy import Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.constants import ApiStatus, AuthType, Environment, HTTPMethod
+from app.core.db_types import str_enum_column
 from app.models.base import Base, TimestampMixin, UUIDPkMixin
 
-_env_enum = Enum(Environment, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e])
-_api_status_enum = Enum(
-    ApiStatus, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e]
-)
-_method_enum = Enum(HTTPMethod, native_enum=False, length=10, values_callable=lambda e: [m.value for m in e])
-_auth_type_enum = Enum(
-    AuthType, native_enum=False, length=20, values_callable=lambda e: [m.value for m in e]
-)
+_env_enum = str_enum_column(Environment)
+_api_status_enum = str_enum_column(ApiStatus)
+_method_enum = str_enum_column(HTTPMethod, length=10)
+_auth_type_enum = str_enum_column(AuthType)
 
 
 class Api(UUIDPkMixin, TimestampMixin, Base):
