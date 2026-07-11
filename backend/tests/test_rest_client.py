@@ -208,7 +208,11 @@ async def test_history_list_favorite_and_delete(client):
         f"/api/v1/projects/{project_id}/rest-client/history", headers=auth_headers(token)
     )
     assert list_resp.status_code == 200
-    assert len(list_resp.json()) == 1
+    list_body = list_resp.json()
+    assert list_body["total"] == 1
+    assert len(list_body["items"]) == 1
+    assert list_body["page"] == 1
+    assert list_body["page_size"] == 20
 
     get_resp = await client.get(f"/api/v1/rest-client/history/{history_id}", headers=auth_headers(token))
     assert get_resp.status_code == 200
@@ -274,3 +278,37 @@ async def test_only_creator_or_admin_can_delete_history(client):
         f"/api/v1/rest-client/history/{history_id}", headers=auth_headers(owner_token)
     )
     assert ok_resp.status_code == 204
+
+
+async def test_history_pagination(client):
+    token = await register_and_login(client, "rest-owner11@example.com")
+    _org_id, project_id = await create_org_and_project(client, token, "Org RC11", "Project RC11")
+
+    with respx.mock:
+        respx.get("https://api.example.com/paged").mock(return_value=httpx.Response(200, text="ok"))
+        for _ in range(3):
+            await client.post(
+                f"/api/v1/projects/{project_id}/rest-client/send",
+                json={"method": "GET", "url": "https://api.example.com/paged"},
+                headers=auth_headers(token),
+            )
+
+    first_page = await client.get(
+        f"/api/v1/projects/{project_id}/rest-client/history?page=1&page_size=2",
+        headers=auth_headers(token),
+    )
+    assert first_page.status_code == 200
+    first_body = first_page.json()
+    assert first_body["total"] == 3
+    assert len(first_body["items"]) == 2
+
+    second_page = await client.get(
+        f"/api/v1/projects/{project_id}/rest-client/history?page=2&page_size=2",
+        headers=auth_headers(token),
+    )
+    second_body = second_page.json()
+    assert len(second_body["items"]) == 1
+
+    first_ids = {item["id"] for item in first_body["items"]}
+    second_ids = {item["id"] for item in second_body["items"]}
+    assert first_ids.isdisjoint(second_ids)

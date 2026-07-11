@@ -1,5 +1,5 @@
 import httpx
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import Role
@@ -14,6 +14,7 @@ from app.core.deps import (
     require_project_role,
 )
 from app.models.user import User
+from app.schemas.common import Page
 from app.schemas.rest_client import FavoriteUpdate, RequestHistoryOut, SendRequestPayload
 from app.services import rest_client_service
 
@@ -37,11 +38,17 @@ async def send_request(
     )
 
 
-@router.get("/projects/{project_id}/rest-client/history", response_model=list[RequestHistoryOut])
+@router.get(
+    "/projects/{project_id}/rest-client/history", response_model=Page[RequestHistoryOut]
+)
 async def list_history(
-    ctx: ProjectContext = Depends(get_project_context), db: AsyncSession = Depends(get_db)
-) -> list[RequestHistoryOut]:
-    return await rest_client_service.list_history(db, ctx.project.id)
+    ctx: ProjectContext = Depends(get_project_context),
+    db: AsyncSession = Depends(get_db),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+) -> Page[RequestHistoryOut]:
+    items, total = await rest_client_service.list_history(db, ctx.project.id, page, page_size)
+    return Page(items=items, total=total, page=page, page_size=page_size)
 
 
 @router.get("/rest-client/history/{history_id}", response_model=RequestHistoryOut)

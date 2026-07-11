@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 import httpx
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import AuthType, Role
@@ -238,13 +238,28 @@ async def send_request(
     return history
 
 
-async def list_history(db: AsyncSession, project_id: uuid.UUID) -> list[RequestHistory]:
+DEFAULT_PAGE_SIZE = 20
+
+
+async def list_history(
+    db: AsyncSession, project_id: uuid.UUID, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE
+) -> tuple[list[RequestHistory], int]:
+    total = (
+        await db.execute(
+            select(func.count())
+            .select_from(RequestHistory)
+            .where(RequestHistory.project_id == project_id)
+        )
+    ).scalar_one()
+
     result = await db.execute(
         select(RequestHistory)
         .where(RequestHistory.project_id == project_id)
         .order_by(RequestHistory.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     )
-    return list(result.scalars().all())
+    return list(result.scalars().all()), total
 
 
 def _ensure_can_modify_history(

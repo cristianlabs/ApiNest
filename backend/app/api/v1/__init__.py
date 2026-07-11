@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1 import (
     apis,
     auth,
+    dashboard,
     docs,
     endpoints,
     invitations,
@@ -22,3 +23,4 @@ api_router.include_router(apis.router)
 api_router.include_router(endpoints.router)
 api_router.include_router(rest_client.router)
 api_router.include_router(docs.router)
+api_router.include_router(dashboard.router)
