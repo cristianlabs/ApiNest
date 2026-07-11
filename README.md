@@ -27,6 +27,24 @@ docker compose exec api alembic upgrade head
 docker compose exec api pytest
 ```
 
+## Funcionalidades do MVP (implementadas)
+
+- **Autenticação**: registro/login com JWT + refresh token (rotação single-use), e-mail case-insensitive.
+- **Organizações e projetos**: papéis ADMIN/EDITOR/VIEWER, convites, proteção contra remover o último admin.
+- **Catálogo de APIs e Endpoints**: CRUD com tags, ambientes, headers/query/path params estruturados.
+- **Cliente REST embutido**: envia requisições reais (GET/POST/PUT/PATCH/DELETE) com Bearer/Basic/API Key,
+  histórico paginado, proteção contra SSRF (bloqueia IPs privados/loopback e pina a conexão no IP validado).
+- **Documentação OpenAPI**: `GET /api/v1/apis/{id}/openapi.json` e `/docs` (Swagger UI) gerados a partir dos
+  endpoints cadastrados.
+- **Dashboard**: `GET /api/v1/dashboard/summary` com contagens, requisições recentes e status da última
+  chamada por API.
+
+## Observabilidade
+
+Toda resposta inclui um header `X-Request-ID` (gerado ou propagado a partir do request), disponível também
+no contexto dos logs estruturados (loguru). Exceções não tratadas retornam um erro genérico 500 em JSON e
+são logadas com stack trace completo, sem vazar detalhes internos para o cliente.
+
 ## Status
 
 Em desenvolvimento — MVP por etapas. Ver plano de implementação para o roadmap detalhado.
