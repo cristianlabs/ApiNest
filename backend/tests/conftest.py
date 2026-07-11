@@ -30,3 +30,21 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+async def register_and_login(
+    client: AsyncClient,
+    email: str,
+    password: str = "supersecret123",
+    full_name: str | None = None,
+) -> str:
+    payload: dict = {"email": email, "password": password}
+    if full_name is not None:
+        payload["full_name"] = full_name
+    await client.post("/api/v1/auth/register", json=payload)
+    login_resp = await client.post("/api/v1/auth/login", json={"email": email, "password": password})
+    return login_resp.json()["access_token"]
+
+
+def auth_headers(token: str) -> dict:
+    return {"Authorization": f"Bearer {token}"}
