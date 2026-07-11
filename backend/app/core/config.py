@@ -18,5 +18,7 @@ class Settings(BaseSettings):
 
     cors_origins: list[str] = ["http://localhost:3000"]
 
+    rest_client_timeout_seconds: float = 15.0
+
 
 settings = Settings()

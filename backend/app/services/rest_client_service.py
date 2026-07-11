@@ -17,46 +17,76 @@ from app.models.request_history import RequestHistory
 from app.models.user import User
 from app.schemas.rest_client import SendRequestPayload
 
-MAX_RESPONSE_BODY_CHARS = 20_000
-REQUEST_TIMEOUT_SECONDS = 15.0
-SENSITIVE_HEADER_NAMES = {"authorization", "proxy-authorization", "cookie", "x-api-key"}
+MAX_RESPONSE_BODY_BYTES = 20_000
+SENSITIVE_HEADER_NAMES = {"authorization", "proxy-authorization", "cookie", "set-cookie", "x-api-key"}
 
 FORBIDDEN_HISTORY_ACTION = HTTPException(
     status_code=status.HTTP_403_FORBIDDEN,
     detail="Only the request's creator or an organization admin can modify this history entry",
 )
+INVALID_URL_SCHEME = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST, detail="URL scheme must be http or https"
+)
+MISSING_HOST = HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="URL must include a host")
+LOCALHOST_BLOCKED = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST, detail="Requests to localhost are not allowed"
+)
+PRIVATE_ADDRESS_BLOCKED = HTTPException(
+    status_code=status.HTTP_400_BAD_REQUEST,
+    detail="Requests to private/internal network addresses are not allowed",
+)
 
 
-def _validate_target_url_sync(url: str) -> None:
+def _check_ip_allowed(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> None:
+    if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
+        raise PRIVATE_ADDRESS_BLOCKED
+
+
+def _resolve_pinned_url_sync(url: str) -> tuple[httpx.URL, str]:
+    """Validates the target isn't private/internal, and pins the connection to the exact IP
+    we just validated. Resolving DNS once here and connecting to that literal address (rather
+    than letting httpx re-resolve the hostname independently moments later) closes the
+    DNS-rebinding/TOCTOU gap where a malicious domain could answer differently between the two
+    lookups. Returns (url_to_connect_to, original_hostname).
+    """
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="URL scheme must be http or https"
-        )
+        raise INVALID_URL_SCHEME
     hostname = parsed.hostname
     if not hostname:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="URL must include a host")
+        raise MISSING_HOST
     if hostname.lower() == "localhost":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Requests to localhost are not allowed"
-        )
+        raise LOCALHOST_BLOCKED
+
+    try:
+        literal_ip = ipaddress.ip_address(hostname)
+    except ValueError:
+        literal_ip = None
+
+    if literal_ip is not None:
+        _check_ip_allowed(literal_ip)
+        return httpx.URL(url), hostname
+
     try:
         addr_infos = socket.getaddrinfo(hostname, None)
     except socket.gaierror:
-        # Unresolvable host: let the actual request fail naturally with a connection error.
-        return
+        # Can't resolve it ourselves (and therefore can't pin to a specific IP); let the
+        # actual request fail naturally with a connection error instead of blocking here.
+        return httpx.URL(url), hostname
+
+    resolved_ip: str | None = None
     for info in addr_infos:
-        ip = ipaddress.ip_address(info[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_multicast:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Requests to private/internal network addresses are not allowed",
-            )
+        candidate = ipaddress.ip_address(info[4][0])
+        _check_ip_allowed(candidate)
+        if resolved_ip is None:
+            resolved_ip = info[4][0]
+
+    return httpx.URL(url).copy_with(host=resolved_ip), hostname
 
 
-async def validate_target_url(url: str) -> None:
+async def resolve_pinned_url(url: str) -> tuple[httpx.URL, str]:
     # DNS resolution is a blocking call; run it off the event loop.
-    await asyncio.to_thread(_validate_target_url_sync, url)
+    return await asyncio.to_thread(_resolve_pinned_url_sync, url)
 
 
 def _redact_headers(headers: dict[str, str]) -> dict[str, str]:
@@ -105,6 +135,43 @@ async def _validate_reference_ids(
             )
 
 
+async def _execute_request(
+    http_client: httpx.AsyncClient,
+    method: str,
+    pinned_url: httpx.URL,
+    original_host: str,
+    headers: dict[str, str],
+    query_params: dict[str, str],
+    json_body: dict | list | None,
+    content_body: str | None,
+    basic_auth: tuple[str, str] | None,
+) -> tuple[int, dict[str, str], str]:
+    request_headers = dict(headers)
+    extensions: dict = {}
+    if pinned_url.host != original_host:
+        request_headers.setdefault("Host", original_host)
+        extensions["sni_hostname"] = original_host
+
+    async with http_client.stream(
+        method,
+        pinned_url,
+        headers=request_headers,
+        params=query_params,
+        json=json_body,
+        content=content_body,
+        auth=basic_auth,
+        extensions=extensions,
+    ) as response:
+        chunks = bytearray()
+        async for chunk in response.aiter_bytes():
+            chunks.extend(chunk)
+            if len(chunks) >= MAX_RESPONSE_BODY_BYTES:
+                break
+        encoding = response.charset_encoding or "utf-8"
+        body_text = bytes(chunks[:MAX_RESPONSE_BODY_BYTES]).decode(encoding, errors="replace")
+        return response.status_code, dict(response.headers), body_text
+
+
 async def send_request(
     db: AsyncSession,
     http_client: httpx.AsyncClient,
@@ -112,7 +179,7 @@ async def send_request(
     user_id: uuid.UUID,
     payload: SendRequestPayload,
 ) -> RequestHistory:
-    await validate_target_url(payload.url)
+    pinned_url, original_host = await resolve_pinned_url(payload.url)
     await _validate_reference_ids(db, project_id, payload.api_id, payload.endpoint_id)
 
     headers, query_params, basic_auth = _build_request_kwargs(payload)
@@ -129,19 +196,18 @@ async def send_request(
     error: str | None = None
 
     try:
-        response = await http_client.request(
+        response_status_code, raw_response_headers, response_body = await _execute_request(
+            http_client,
             payload.method.value,
-            payload.url,
-            headers=headers,
-            params=query_params,
-            json=json_body,
-            content=content_body,
-            auth=basic_auth,
-            timeout=REQUEST_TIMEOUT_SECONDS,
+            pinned_url,
+            original_host,
+            headers,
+            query_params,
+            json_body,
+            content_body,
+            basic_auth,
         )
-        response_status_code = response.status_code
-        response_headers = dict(response.headers)
-        response_body = response.text[:MAX_RESPONSE_BODY_CHARS]
+        response_headers = _redact_headers(raw_response_headers)
     except httpx.TimeoutException:
         error = "Request timed out"
     except httpx.RequestError as exc:

@@ -28,6 +28,28 @@ async def test_send_request_stores_history(client):
     assert body["is_favorite"] is False
 
 
+async def test_send_request_redacts_sensitive_response_headers(client):
+    token = await register_and_login(client, "rest-owner1b@example.com")
+    _org_id, project_id = await create_org_and_project(client, token, "Org RC1B", "Project RC1B")
+
+    with respx.mock:
+        respx.get("https://cookie.example.com/login").mock(
+            return_value=httpx.Response(
+                200, headers={"Set-Cookie": "session=SECRET123; HttpOnly"}, text="ok"
+            )
+        )
+        response = await client.post(
+            f"/api/v1/projects/{project_id}/rest-client/send",
+            json={"method": "GET", "url": "https://cookie.example.com/login"},
+            headers=auth_headers(token),
+        )
+
+    assert response.status_code == 201
+    body = response.json()
+    response_headers = {k.lower(): v for k, v in body["response_headers"].items()}
+    assert response_headers["set-cookie"] == "***redacted***"
+
+
 async def test_send_request_redacts_authorization_header(client):
     token = await register_and_login(client, "rest-owner2@example.com")
     _org_id, project_id = await create_org_and_project(client, token, "Org RC2", "Project RC2")

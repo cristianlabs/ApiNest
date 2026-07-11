@@ -101,3 +101,50 @@ async def test_non_member_cannot_access_openapi_spec(client):
         f"/api/v1/apis/{api_id}/openapi.json", headers=auth_headers(outsider_token)
     )
     assert response.status_code == 403
+
+
+async def test_endpoints_with_different_api_key_headers_get_distinct_schemes(client):
+    token = await register_and_login(client, "docs-owner5@example.com")
+    _org_id, project_id = await create_org_and_project(client, token, "Org Docs5", "Project Docs5")
+    api_resp = await client.post(
+        f"/api/v1/projects/{project_id}/apis",
+        json={"name": "Docs API 5", "base_url": "https://docs5.example.com"},
+        headers=auth_headers(token),
+    )
+    api_id = api_resp.json()["id"]
+
+    await client.post(
+        f"/api/v1/apis/{api_id}/endpoints",
+        json={
+            "name": "One",
+            "method": "GET",
+            "path": "/one",
+            "auth_type": "api_key",
+            "auth_config": {"header_name": "X-Key-One"},
+        },
+        headers=auth_headers(token),
+    )
+    await client.post(
+        f"/api/v1/apis/{api_id}/endpoints",
+        json={
+            "name": "Two",
+            "method": "GET",
+            "path": "/two",
+            "auth_type": "api_key",
+            "auth_config": {"header_name": "X-Key-Two"},
+        },
+        headers=auth_headers(token),
+    )
+
+    response = await client.get(f"/api/v1/apis/{api_id}/openapi.json", headers=auth_headers(token))
+    assert response.status_code == 200
+    spec = response.json()
+
+    schemes = spec["components"]["securitySchemes"]
+    assert len(schemes) == 2
+
+    one_scheme_name = next(iter(spec["paths"]["/one"]["get"]["security"][0]))
+    two_scheme_name = next(iter(spec["paths"]["/two"]["get"]["security"][0]))
+    assert one_scheme_name != two_scheme_name
+    assert schemes[one_scheme_name]["name"] == "X-Key-One"
+    assert schemes[two_scheme_name]["name"] == "X-Key-Two"

@@ -13,7 +13,7 @@ from app.core.logging import logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.http_client = httpx.AsyncClient(timeout=10.0)
+    app.state.http_client = httpx.AsyncClient(timeout=settings.rest_client_timeout_seconds)
     logger.info("ApiNest starting up ({} environment)", settings.environment)
     yield
     await app.state.http_client.aclose()
