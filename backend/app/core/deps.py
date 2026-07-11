@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.constants import MembershipStatus, Role
 from app.core.db import get_db
 from app.core.security import decode_access_token
+from app.models.api_registry import Api, Endpoint
 from app.models.organization import Membership, Organization
 from app.models.project import Project
 from app.models.user import User
@@ -109,6 +110,76 @@ async def get_project_context(
 
 def require_project_role(*roles: Role):
     async def checker(ctx: ProjectContext = Depends(get_project_context)) -> ProjectContext:
+        if ctx.membership.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role for this action"
+            )
+        return ctx
+
+    return checker
+
+
+@dataclass
+class ApiContext:
+    api: Api
+    project: Project
+    organization: Organization
+    membership: Membership
+
+
+async def get_api_context(
+    api_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ApiContext:
+    api = await db.get(Api, api_id)
+    if api is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="API not found")
+    project = await db.get(Project, api.project_id)
+    membership = await _get_active_membership(db, project.organization_id, current_user.id)
+    organization = await db.get(Organization, project.organization_id)
+    return ApiContext(api=api, project=project, organization=organization, membership=membership)
+
+
+def require_api_role(*roles: Role):
+    async def checker(ctx: ApiContext = Depends(get_api_context)) -> ApiContext:
+        if ctx.membership.role not in roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role for this action"
+            )
+        return ctx
+
+    return checker
+
+
+@dataclass
+class EndpointContext:
+    endpoint: Endpoint
+    api: Api
+    project: Project
+    organization: Organization
+    membership: Membership
+
+
+async def get_endpoint_context(
+    endpoint_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> EndpointContext:
+    endpoint = await db.get(Endpoint, endpoint_id)
+    if endpoint is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Endpoint not found")
+    api = await db.get(Api, endpoint.api_id)
+    project = await db.get(Project, api.project_id)
+    membership = await _get_active_membership(db, project.organization_id, current_user.id)
+    organization = await db.get(Organization, project.organization_id)
+    return EndpointContext(
+        endpoint=endpoint, api=api, project=project, organization=organization, membership=membership
+    )
+
+
+def require_endpoint_role(*roles: Role):
+    async def checker(ctx: EndpointContext = Depends(get_endpoint_context)) -> EndpointContext:
         if ctx.membership.role not in roles:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient role for this action"

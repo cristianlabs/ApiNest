@@ -48,3 +48,19 @@ async def register_and_login(
 
 def auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
+
+
+async def create_org_and_project(
+    client: AsyncClient, token: str, org_name: str, project_name: str
+) -> tuple[str, str]:
+    org_resp = await client.post(
+        "/api/v1/organizations", json={"name": org_name}, headers=auth_headers(token)
+    )
+    org_id = org_resp.json()["id"]
+    project_resp = await client.post(
+        f"/api/v1/organizations/{org_id}/projects",
+        json={"name": project_name},
+        headers=auth_headers(token),
+    )
+    project_id = project_resp.json()["id"]
+    return org_id, project_id

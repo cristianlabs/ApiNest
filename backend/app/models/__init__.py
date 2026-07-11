@@ -1,3 +1,4 @@
+from app.models.api_registry import Api, Endpoint
 from app.models.base import Base
 from app.models.organization import Invitation, Membership, Organization
 from app.models.project import Project
@@ -11,4 +12,6 @@ __all__ = [
     "Membership",
     "Invitation",
     "Project",
+    "Api",
+    "Endpoint",
 ]
