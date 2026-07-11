@@ -24,8 +24,15 @@ docker compose exec api alembic upgrade head
 ## Testes
 
 ```bash
-docker compose exec api pytest
+docker compose exec api pytest                                    # suíte completa
+docker compose exec api pytest --cov --cov-report=term-missing    # com cobertura
 ```
+
+## CI
+
+O workflow em `.github/workflows/ci.yml` roda a cada push/PR: sobe Postgres e Redis como
+services, instala as dependências, roda lint (`ruff`), aplica as migrations e roda a suíte de
+testes com cobertura (mínimo de 70%, relatório publicado como artifact).
 
 ## Funcionalidades do MVP (implementadas)
 
