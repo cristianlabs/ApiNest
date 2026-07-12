@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { z } from 'zod'
 
@@ -27,6 +27,8 @@ type FormValues = z.infer<typeof schema>
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const from = (location.state as { from?: Location })?.from?.pathname ?? '/'
   const {
     register: registerField,
     handleSubmit,
@@ -35,7 +37,7 @@ export function RegisterPage() {
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => registerUser(values.email, values.password, values.fullName),
-    onSuccess: () => navigate('/', { replace: true }),
+    onSuccess: () => navigate(from, { replace: true }),
     onError: (error: Error) => toast.error(error.message),
   })
 
@@ -79,7 +81,7 @@ export function RegisterPage() {
         </CardContent>
         <CardFooter className="justify-center text-sm text-muted-foreground">
           Já tem conta?{' '}
-          <Link to="/login" className="ml-1 underline">
+          <Link to="/login" state={location.state} className="ml-1 underline">
             Entrar
           </Link>
         </CardFooter>
