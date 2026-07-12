@@ -21,9 +21,14 @@ export function ProjectDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">{project.name}</h1>
-        {project.description && <p className="text-muted-foreground">{project.description}</p>}
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold">{project.name}</h1>
+          {project.description && <p className="text-muted-foreground">{project.description}</p>}
+        </div>
+        <Button variant="outline" size="sm" render={<Link to="rest-client" />}>
+          Cliente REST
+        </Button>
       </div>
 
       <section className="space-y-3">

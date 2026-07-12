@@ -11,6 +11,7 @@ import { AcceptInvitationPage } from '@/features/organizations/accept-invitation
 import { OrganizationDetailPage } from '@/features/organizations/organization-detail-page'
 import { OrganizationsListPage } from '@/features/organizations/organizations-list-page'
 import { ProjectDetailPage } from '@/features/projects/project-detail-page'
+import { RestClientPage } from '@/features/rest-client/rest-client-page'
 
 export const router = createBrowserRouter([
   {
@@ -42,6 +43,10 @@ export const router = createBrowserRouter([
           {
             path: 'organizations/:orgId/projects/:projectId/apis/:apiId/endpoints/:endpointId',
             element: <EndpointFormPage />,
+          },
+          {
+            path: 'organizations/:orgId/projects/:projectId/rest-client',
+            element: <RestClientPage />,
           },
         ],
       },

@@ -109,6 +109,7 @@ export function ApiDetailPage() {
                 <TableHead>Método</TableHead>
                 <TableHead>Path</TableHead>
                 <TableHead>Nome</TableHead>
+                <TableHead>Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -123,6 +124,19 @@ export function ApiDetailPage() {
                   </TableCell>
                   <TableCell className="font-mono text-sm">{endpoint.path}</TableCell>
                   <TableCell>{endpoint.name}</TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      render={
+                        <Link
+                          to={`/organizations/${orgId}/projects/${projectId}/rest-client?endpointId=${endpoint.id}`}
+                        />
+                      }
+                    >
+                      Usar
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
