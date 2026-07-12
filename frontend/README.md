@@ -1,32 +1,62 @@
-# React + TypeScript + Vite
+# ApiNest — Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+SPA em Vite + React + TypeScript que consome a API do ApiNest (`../backend`).
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Vite + React 19 + TypeScript**
+- **Tailwind CSS v4** + **shadcn/ui** (estilo "Nova")
+- **React Router** — roteamento
+- **TanStack Query** — cache e estado de dados do servidor
+- **react-hook-form + zod** — formulários e validação
+- **Zustand** — estado de autenticação (tokens/usuário atual)
+- **openapi-fetch** + tipos gerados via **openapi-typescript** a partir do `openapi.json` do backend
 
-## React Compiler
+## Setup
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Pré-requisito: o backend rodando (`docker compose up` na raiz do `ApiNest`), já que os tipos da
+API são gerados a partir dele e o app precisa dele para funcionar.
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Acesse http://localhost:5173.
+
+## Scripts
+
+```bash
+npm run dev                  # servidor de desenvolvimento com HMR
+npm run build                # typecheck + build de produção em dist/
+npm run preview              # serve o build de produção localmente
+npm run lint                 # oxlint
+npm run generate:api-types   # regenera src/api/schema.d.ts a partir do openapi.json do backend
+```
+
+Rode `generate:api-types` sempre que o backend ganhar/alterar endpoints — ele precisa estar
+rodando em `http://localhost:8000` (ou ajuste a URL no script em `package.json`).
+
+## Variáveis de ambiente
+
+| Variável | Descrição | Padrão |
+|---|---|---|
+| `VITE_API_BASE_URL` | Origem da API (sem `/api/v1` — os paths gerados já incluem o prefixo) | `http://localhost:8000` |
+
+## Estrutura
+
+```
+src/
+├── api/         # client.ts (cliente HTTP tipado com auth), schema.d.ts (gerado, não editar)
+├── components/  # componentes shadcn/ui (components/ui) + componentes compartilhados
+├── routes/      # páginas e definição de rotas (React Router)
+├── stores/      # estado global (auth-store via Zustand)
+└── main.tsx     # providers (QueryClient, Router, Toaster)
+```
+
+## Status
+
+Em desenvolvimento por etapas (F0–F6), acompanhando o backend. Ver plano de implementação para
+o roadmap detalhado.
