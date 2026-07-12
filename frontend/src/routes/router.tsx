@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
 
 import { LoginPage } from '@/routes/auth/login-page'
@@ -6,12 +7,17 @@ import { PublicOnlyRoute } from '@/routes/public-only-route'
 import { RequireAuth } from '@/routes/require-auth'
 import { RootLayout } from '@/routes/root-layout'
 import { ApiDetailPage } from '@/features/apis/api-detail-page'
+import { DashboardPage } from '@/features/dashboard/dashboard-page'
 import { EndpointFormPage } from '@/features/endpoints/endpoint-form-page'
 import { AcceptInvitationPage } from '@/features/organizations/accept-invitation-page'
 import { OrganizationDetailPage } from '@/features/organizations/organization-detail-page'
 import { OrganizationsListPage } from '@/features/organizations/organizations-list-page'
 import { ProjectDetailPage } from '@/features/projects/project-detail-page'
 import { RestClientPage } from '@/features/rest-client/rest-client-page'
+
+const ApiDocsPage = lazy(() =>
+  import('@/features/apis/api-docs-page').then((m) => ({ default: m.ApiDocsPage })),
+)
 
 export const router = createBrowserRouter([
   {
@@ -29,12 +35,21 @@ export const router = createBrowserRouter([
         element: <RootLayout />,
         children: [
           { index: true, element: <Navigate to="/organizations" replace /> },
+          { path: 'dashboard', element: <DashboardPage /> },
           { path: 'organizations', element: <OrganizationsListPage /> },
           { path: 'organizations/:orgId', element: <OrganizationDetailPage /> },
           { path: 'organizations/:orgId/projects/:projectId', element: <ProjectDetailPage /> },
           {
             path: 'organizations/:orgId/projects/:projectId/apis/:apiId',
             element: <ApiDetailPage />,
+          },
+          {
+            path: 'organizations/:orgId/projects/:projectId/apis/:apiId/docs',
+            element: (
+              <Suspense fallback={<p className="text-muted-foreground">Carregando...</p>}>
+                <ApiDocsPage />
+              </Suspense>
+            ),
           },
           {
             path: 'organizations/:orgId/projects/:projectId/apis/:apiId/endpoints/new',

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query'
-import { Outlet, useNavigate } from 'react-router'
+import { Link, Outlet, useNavigate } from 'react-router'
 
 import { logout } from '@/api/auth'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,17 @@ export function RootLayout() {
   return (
     <div className="flex min-h-svh flex-col">
       <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <span className="text-lg font-semibold">ApiNest</span>
+        <div className="flex items-center gap-6">
+          <span className="text-lg font-semibold">ApiNest</span>
+          <nav className="flex items-center gap-4 text-sm">
+            <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
+              Dashboard
+            </Link>
+            <Link to="/organizations" className="text-muted-foreground hover:text-foreground">
+              Organizações
+            </Link>
+          </nav>
+        </div>
         <div className="flex items-center gap-3">
           {user && (
             <span className="text-sm text-muted-foreground">{user.full_name ?? user.email}</span>

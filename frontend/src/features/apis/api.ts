@@ -46,6 +46,20 @@ export function useApiDetail(apiId: string | undefined) {
   })
 }
 
+export function useApiSpec(apiId: string | undefined) {
+  return useQuery({
+    queryKey: ['apis', apiId, 'openapi.json'],
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/api/v1/apis/{api_id}/openapi.json', {
+        params: { path: { api_id: apiId! } },
+      })
+      if (error) throw new Error(errorMessage(error, 'Não foi possível carregar a documentação.'))
+      return data
+    },
+    enabled: Boolean(apiId),
+  })
+}
+
 export function useCreateApi(projectId: string) {
   const queryClient = useQueryClient()
   return useMutation({

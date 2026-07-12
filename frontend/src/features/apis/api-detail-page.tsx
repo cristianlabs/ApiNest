@@ -62,29 +62,34 @@ export function ApiDetailPage() {
           </p>
           {api.description && <p className="mt-2 text-sm">{api.description}</p>}
         </div>
-        {canEdit && (
-          <div className="flex gap-2">
-            <ApiFormDialog
-              projectId={projectId!}
-              api={api}
-              trigger={
-                <Button variant="outline" size="sm">
-                  Editar
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" render={<Link to="docs" />}>
+            Documentação
+          </Button>
+          {canEdit && (
+            <>
+              <ApiFormDialog
+                projectId={projectId!}
+                api={api}
+                trigger={
+                  <Button variant="outline" size="sm">
+                    Editar
+                  </Button>
+                }
+              />
+              {isAdmin && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={deleteMutation.isPending}
+                >
+                  Excluir
                 </Button>
-              }
-            />
-            {isAdmin && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDelete}
-                disabled={deleteMutation.isPending}
-              >
-                Excluir
-              </Button>
-            )}
-          </div>
-        )}
+              )}
+            </>
+          )}
+        </div>
       </div>
 
       <section className="space-y-3">
