@@ -1,10 +1,36 @@
-import { Outlet } from 'react-router'
+import { useMutation } from '@tanstack/react-query'
+import { Outlet, useNavigate } from 'react-router'
+
+import { logout } from '@/api/auth'
+import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/stores/auth-store'
 
 export function RootLayout() {
+  const navigate = useNavigate()
+  const user = useAuthStore((state) => state.user)
+
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => navigate('/login', { replace: true }),
+  })
+
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="border-border border-b px-6 py-4">
+      <header className="flex items-center justify-between border-b border-border px-6 py-4">
         <span className="text-lg font-semibold">ApiNest</span>
+        <div className="flex items-center gap-3">
+          {user && (
+            <span className="text-sm text-muted-foreground">{user.full_name ?? user.email}</span>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => logoutMutation.mutate()}
+            disabled={logoutMutation.isPending}
+          >
+            Sair
+          </Button>
+        </div>
       </header>
       <main className="flex-1 p-6">
         <Outlet />
