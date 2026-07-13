@@ -14,6 +14,17 @@ docker compose up --build
 - Docs (Swagger): http://localhost:8000/docs
 - Adminer (opcional): `docker compose --profile tools up adminer` → http://localhost:8080
 
+Com o backend no ar, suba o frontend em outro terminal:
+
+```bash
+cd frontend
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+- App: http://localhost:5173
+
 ## Migrations
 
 ```bash
@@ -45,6 +56,13 @@ testes com cobertura (mínimo de 70%, relatório publicado como artifact).
   endpoints cadastrados.
 - **Dashboard**: `GET /api/v1/dashboard/summary` com contagens, requisições recentes e status da última
   chamada por API.
+
+## Frontend
+
+SPA em `frontend/` (Vite + React 19 + TypeScript + Tailwind CSS v4 + shadcn/ui) que consome esta
+API. Cobre autenticação, organizações/projetos/membros, catálogo de APIs e endpoints, cliente REST
+com histórico, documentação OpenAPI (Swagger UI autenticado) e dashboard. Detalhes de setup,
+scripts e estrutura em [`frontend/README.md`](frontend/README.md).
 
 ## Observabilidade
 
