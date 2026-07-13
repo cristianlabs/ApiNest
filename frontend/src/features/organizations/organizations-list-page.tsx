@@ -3,9 +3,10 @@ import { Link } from 'react-router'
 import { CreateOrganizationDialog } from '@/features/organizations/create-organization-dialog'
 import { useOrganizations } from '@/features/organizations/api'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { QueryError } from '@/components/query-error'
 
 export function OrganizationsListPage() {
-  const { data: organizations, isLoading } = useOrganizations()
+  const { data: organizations, isLoading, isError, error } = useOrganizations()
 
   return (
     <div className="space-y-6">
@@ -18,8 +19,9 @@ export function OrganizationsListPage() {
       </div>
 
       {isLoading && <p className="text-muted-foreground">Carregando...</p>}
+      {isError && <QueryError error={error} />}
 
-      {!isLoading && organizations?.length === 0 && (
+      {!isLoading && !isError && organizations?.length === 0 && (
         <p className="text-muted-foreground">
           Você ainda não faz parte de nenhuma organização. Crie uma para começar.
         </p>

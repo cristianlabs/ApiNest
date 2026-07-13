@@ -8,6 +8,7 @@ import {
   useSetFavorite,
   type RequestHistoryOut,
 } from '@/features/rest-client/api'
+import { QueryError } from '@/components/query-error'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -107,6 +108,7 @@ export function HistoryList({ projectId, onView, onReuse }: HistoryListProps) {
       <h2 className="text-lg font-medium">Histórico</h2>
 
       {historyQuery.isLoading && <p className="text-muted-foreground">Carregando...</p>}
+      {historyQuery.isError && <QueryError error={historyQuery.error} />}
       {!historyQuery.isLoading && data?.items.length === 0 && (
         <p className="text-muted-foreground">Nenhuma requisição ainda.</p>
       )}

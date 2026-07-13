@@ -5,6 +5,7 @@ import { useCurrentMembership } from '@/features/organizations/api'
 import { useApiDetail, useDeleteApi } from '@/features/apis/api'
 import { ApiFormDialog } from '@/features/apis/api-form-dialog'
 import { useEndpoints } from '@/features/endpoints/api'
+import { QueryError } from '@/components/query-error'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -29,8 +30,13 @@ export function ApiDetailPage() {
   }>()
   const navigate = useNavigate()
 
-  const { data: api } = useApiDetail(apiId)
-  const { data: endpoints, isLoading: endpointsLoading } = useEndpoints(apiId!)
+  const { data: api, isLoading: apiLoading, isError: apiIsError, error: apiError } = useApiDetail(apiId)
+  const {
+    data: endpoints,
+    isLoading: endpointsLoading,
+    isError: endpointsIsError,
+    error: endpointsError,
+  } = useEndpoints(apiId!)
   const { membership } = useCurrentMembership(orgId!)
   const deleteMutation = useDeleteApi(apiId!, projectId!)
 
@@ -45,7 +51,9 @@ export function ApiDetailPage() {
     })
   }
 
-  if (!api) return <p className="text-muted-foreground">Carregando...</p>
+  if (apiLoading) return <p className="text-muted-foreground">Carregando...</p>
+  if (apiIsError) return <QueryError error={apiError} />
+  if (!api) return null
 
   return (
     <div className="space-y-6">
@@ -103,6 +111,7 @@ export function ApiDetailPage() {
         </div>
 
         {endpointsLoading && <p className="text-muted-foreground">Carregando...</p>}
+        {endpointsIsError && <QueryError error={endpointsError} />}
         {!endpointsLoading && endpoints?.length === 0 && (
           <p className="text-muted-foreground">Nenhum endpoint ainda.</p>
         )}

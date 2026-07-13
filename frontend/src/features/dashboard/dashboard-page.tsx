@@ -1,4 +1,5 @@
 import { useDashboardSummary } from '@/features/dashboard/api'
+import { QueryError } from '@/components/query-error'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -11,9 +12,10 @@ function statusVariant(status: number | null): 'default' | 'destructive' | 'seco
 }
 
 export function DashboardPage() {
-  const { data, isLoading } = useDashboardSummary()
+  const { data, isLoading, isError, error } = useDashboardSummary()
 
   if (isLoading) return <p className="text-muted-foreground">Carregando...</p>
+  if (isError) return <QueryError error={error} />
   if (!data) return null
 
   const cards = [

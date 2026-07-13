@@ -13,6 +13,7 @@ import { InviteMemberDialog } from '@/features/organizations/invite-member-dialo
 import { CreateProjectDialog } from '@/features/projects/create-project-dialog'
 import { useProjects } from '@/features/projects/api'
 import { useAuthStore } from '@/stores/auth-store'
+import { QueryError } from '@/components/query-error'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,9 +33,19 @@ export function OrganizationDetailPage() {
   const organizationId = orgId!
   const currentUser = useAuthStore((state) => state.user)
 
-  const { data: organization } = useOrganization(organizationId)
-  const { data: members, isLoading: membersLoading } = useMembers(organizationId)
-  const { data: projects, isLoading: projectsLoading } = useProjects(organizationId)
+  const { data: organization, isError: orgIsError, error: orgError } = useOrganization(organizationId)
+  const {
+    data: members,
+    isLoading: membersLoading,
+    isError: membersIsError,
+    error: membersError,
+  } = useMembers(organizationId)
+  const {
+    data: projects,
+    isLoading: projectsLoading,
+    isError: projectsIsError,
+    error: projectsError,
+  } = useProjects(organizationId)
   const { membership: currentMembership } = useCurrentMembership(organizationId)
 
   const updateRole = useUpdateMemberRole(organizationId)
@@ -48,6 +59,7 @@ export function OrganizationDetailPage() {
       <div>
         <h1 className="text-2xl font-semibold">{organization?.name ?? 'Organização'}</h1>
         {organization && <p className="text-muted-foreground">{organization.slug}</p>}
+        {orgIsError && <QueryError error={orgError} />}
       </div>
 
       <section className="space-y-3">
@@ -57,6 +69,7 @@ export function OrganizationDetailPage() {
         </div>
 
         {membersLoading && <p className="text-muted-foreground">Carregando...</p>}
+        {membersIsError && <QueryError error={membersError} />}
 
         {members && (
           <Table>
@@ -134,6 +147,7 @@ export function OrganizationDetailPage() {
         </div>
 
         {projectsLoading && <p className="text-muted-foreground">Carregando...</p>}
+        {projectsIsError && <QueryError error={projectsError} />}
 
         {!projectsLoading && projects?.length === 0 && (
           <p className="text-muted-foreground">Nenhum projeto ainda.</p>

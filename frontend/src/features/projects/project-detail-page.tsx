@@ -4,19 +4,26 @@ import { useApis } from '@/features/apis/api'
 import { ApiFormDialog } from '@/features/apis/api-form-dialog'
 import { useCurrentMembership } from '@/features/organizations/api'
 import { useProject } from '@/features/projects/api'
+import { QueryError } from '@/components/query-error'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 export function ProjectDetailPage() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>()
-  const { data: project, isLoading } = useProject(projectId!)
-  const { data: apis, isLoading: apisLoading } = useApis(projectId!)
+  const { data: project, isLoading, isError, error } = useProject(projectId!)
+  const {
+    data: apis,
+    isLoading: apisLoading,
+    isError: apisIsError,
+    error: apisError,
+  } = useApis(projectId!)
   const { membership } = useCurrentMembership(orgId!)
 
   const canCreateApi = membership?.role === 'admin' || membership?.role === 'editor'
 
   if (isLoading) return <p className="text-muted-foreground">Carregando...</p>
+  if (isError) return <QueryError error={error} />
   if (!project) return null
 
   return (
@@ -43,6 +50,7 @@ export function ProjectDetailPage() {
         </div>
 
         {apisLoading && <p className="text-muted-foreground">Carregando...</p>}
+        {apisIsError && <QueryError error={apisError} />}
         {!apisLoading && apis?.length === 0 && (
           <p className="text-muted-foreground">Nenhuma API ainda.</p>
         )}

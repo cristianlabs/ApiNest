@@ -16,10 +16,10 @@ export function RootLayout() {
 
   return (
     <div className="flex min-h-svh flex-col">
-      <header className="flex items-center justify-between border-b border-border px-6 py-4">
-        <div className="flex items-center gap-6">
+      <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6 sm:py-4">
+        <div className="flex items-center gap-3 sm:gap-6">
           <span className="text-lg font-semibold">ApiNest</span>
-          <nav className="flex items-center gap-4 text-sm">
+          <nav className="flex items-center gap-3 text-sm sm:gap-4">
             <Link to="/dashboard" className="text-muted-foreground hover:text-foreground">
               Dashboard
             </Link>
@@ -30,7 +30,9 @@ export function RootLayout() {
         </div>
         <div className="flex items-center gap-3">
           {user && (
-            <span className="text-sm text-muted-foreground">{user.full_name ?? user.email}</span>
+            <span className="hidden text-sm text-muted-foreground sm:inline">
+              {user.full_name ?? user.email}
+            </span>
           )}
           <Button
             variant="outline"
@@ -42,7 +44,7 @@ export function RootLayout() {
           </Button>
         </div>
       </header>
-      <main className="flex-1 p-6">
+      <main className="flex-1 p-4 sm:p-6">
         <Outlet />
       </main>
     </div>

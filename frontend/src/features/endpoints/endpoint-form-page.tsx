@@ -13,6 +13,7 @@ import {
 } from '@/features/endpoints/api'
 import { KeyValueListEditor } from '@/features/endpoints/key-value-list-editor'
 import { useCurrentMembership } from '@/features/organizations/api'
+import { QueryError } from '@/components/query-error'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -157,6 +158,9 @@ export function EndpointFormPage() {
 
   if (isEdit && endpointQuery.isLoading) {
     return <p className="text-muted-foreground">Carregando...</p>
+  }
+  if (isEdit && endpointQuery.isError) {
+    return <QueryError error={endpointQuery.error} />
   }
 
   return (
